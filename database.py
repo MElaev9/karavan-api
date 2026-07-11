@@ -68,6 +68,14 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS combos (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                dish_ids TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
     else:
         c.execute("""
             CREATE TABLE IF NOT EXISTS dishes (
@@ -94,6 +102,14 @@ def init_db():
                 guests INTEGER NOT NULL,
                 dish_ids TEXT NOT NULL,
                 event_date TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS combos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                dish_ids TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
         """)
@@ -339,5 +355,104 @@ def delete_event(event_id):
     conn = get_conn()
     c = conn.cursor()
     c.execute(f"DELETE FROM events WHERE id = {PLACEHOLDER}", (event_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Блюда: создание / редактирование / удаление ────────────────────────────
+
+def create_dish(name, category, serves, ingredients):
+    """ingredients: список {"name", "amount", "unit"}. Возвращает id блюда."""
+    conn = get_conn()
+    c = conn.cursor()
+    if DATABASE_URL:
+        c.execute(
+            f"INSERT INTO dishes (name, category, serves) VALUES ({_ph(3)}) RETURNING id",
+            (name, category, serves),
+        )
+        dish_id = c.fetchone()[0]
+    else:
+        c.execute(
+            f"INSERT INTO dishes (name, category, serves) VALUES ({_ph(3)})",
+            (name, category, serves),
+        )
+        dish_id = c.lastrowid
+
+    for ing in ingredients:
+        c.execute(
+            f"INSERT INTO ingredients (dish_id, name, amount, unit) VALUES ({_ph(4)})",
+            (dish_id, ing["name"], ing["amount"], ing["unit"]),
+        )
+    conn.commit()
+    conn.close()
+    return dish_id
+
+
+def update_dish(dish_id, name, category, serves, ingredients):
+    """Обновляет блюдо и полностью заменяет список ингредиентов."""
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"UPDATE dishes SET name = {PLACEHOLDER}, category = {PLACEHOLDER}, "
+        f"serves = {PLACEHOLDER} WHERE id = {PLACEHOLDER}",
+        (name, category, serves, dish_id),
+    )
+    c.execute(f"DELETE FROM ingredients WHERE dish_id = {PLACEHOLDER}", (dish_id,))
+    for ing in ingredients:
+        c.execute(
+            f"INSERT INTO ingredients (dish_id, name, amount, unit) VALUES ({_ph(4)})",
+            (dish_id, ing["name"], ing["amount"], ing["unit"]),
+        )
+    conn.commit()
+    conn.close()
+
+
+def delete_dish(dish_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"DELETE FROM ingredients WHERE dish_id = {PLACEHOLDER}", (dish_id,))
+    c.execute(f"DELETE FROM dishes WHERE id = {PLACEHOLDER}", (dish_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Комбо ────────────────────────────────────────────────────────────────────
+
+def get_all_combos():
+    conn = get_conn()
+    if DATABASE_URL:
+        c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        c = conn.cursor()
+    c.execute("SELECT * FROM combos ORDER BY created_at DESC")
+    rows = c.fetchall()
+    conn.close()
+    return [_row_to_dict(r) for r in rows]
+
+
+def save_combo(name, dish_ids):
+    conn = get_conn()
+    c = conn.cursor()
+    if DATABASE_URL:
+        c.execute(
+            f"INSERT INTO combos (name, dish_ids, created_at) VALUES ({_ph(3)}) RETURNING id",
+            (name, json.dumps(dish_ids), datetime.now().isoformat()),
+        )
+        combo_id = c.fetchone()[0]
+    else:
+        c.execute(
+            f"INSERT INTO combos (name, dish_ids, created_at) VALUES ({_ph(3)})",
+            (name, json.dumps(dish_ids), datetime.now().isoformat()),
+        )
+        combo_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return combo_id
+
+
+def delete_combo(combo_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"DELETE FROM combos WHERE id = {PLACEHOLDER}", (combo_id,))
     conn.commit()
     conn.close()
