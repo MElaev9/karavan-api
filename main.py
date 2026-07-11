@@ -26,6 +26,7 @@ from database import (
     save_event,
     update_dish,
 )
+from sheets import delete_sheet_for_event, export_event_to_sheets, SPREADSHEET_ID
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -180,15 +181,39 @@ def create_event(payload: EventCreateRequest, _=Depends(require_telegram_auth)):
     if not payload.dish_ids:
         raise HTTPException(status_code=400, detail="dish_ids must not be empty")
     event_id = save_event(payload.name, payload.guests, payload.dish_ids, payload.event_date or "")
+
+    try:
+        dish_names = [d["name"] for d in (get_dish_by_id(did) for did in payload.dish_ids) if d]
+        ingredients = calculate_ingredients(payload.guests, payload.dish_ids)
+        export_event_to_sheets(
+            event_name=payload.name,
+            guests=payload.guests,
+            dish_names=dish_names,
+            ingredients=ingredients,
+            event_date=payload.event_date or "",
+        )
+    except Exception:
+        logger.warning("Auto-export to Sheets failed", exc_info=True)
+
     return {"id": event_id}
 
 
 @app.delete("/api/events/{event_id}")
 def remove_event(event_id: int, _=Depends(require_telegram_auth)):
-    if get_event_by_id(event_id) is None:
+    event = get_event_by_id(event_id)
+    if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     delete_event(event_id)
+    try:
+        delete_sheet_for_event(event["name"])
+    except Exception:
+        logger.warning("Could not delete sheet for event '%s'", event["name"], exc_info=True)
     return {"ok": True}
+
+
+@app.get("/api/sheets-url")
+def sheets_url(_=Depends(require_telegram_auth)):
+    return {"url": f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}"}
 
 
 @app.get("/health")
