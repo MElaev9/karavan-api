@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from datetime import date
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -180,6 +181,8 @@ def create_event(payload: EventCreateRequest, _=Depends(require_telegram_auth)):
         raise HTTPException(status_code=400, detail="guests must be positive")
     if not payload.dish_ids:
         raise HTTPException(status_code=400, detail="dish_ids must not be empty")
+    if not payload.event_date:
+        raise HTTPException(status_code=400, detail="event_date is required")
     event_id = save_event(payload.name, payload.guests, payload.dish_ids, payload.event_date or "")
 
     try:
@@ -209,6 +212,31 @@ def remove_event(event_id: int, _=Depends(require_telegram_auth)):
     except Exception:
         logger.warning("Could not delete sheet for event '%s'", event["name"], exc_info=True)
     return {"ok": True}
+
+
+@app.get("/api/shopping-list")
+def shopping_list(_=Depends(require_telegram_auth)):
+    today = date.today().isoformat()
+    upcoming = [e for e in get_all_events() if e["event_date"] and e["event_date"] >= today]
+
+    totals = {}
+    for event in upcoming:
+        dish_ids = json.loads(event["dish_ids"])
+        for ing in calculate_ingredients(event["guests"], dish_ids):
+            key = (ing["name"], ing["unit"])
+            if key in totals:
+                totals[key]["amount"] += ing["amount"]
+            else:
+                totals[key] = dict(ing)
+
+    ingredients = sorted(totals.values(), key=lambda x: (x["department"], x["name"]))
+    for ing in ingredients:
+        ing["amount"] = round(ing["amount"], 3)
+
+    return {
+        "events": [e["name"] for e in upcoming],
+        "ingredients": ingredients,
+    }
 
 
 @app.get("/api/sheets-url")
