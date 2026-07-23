@@ -102,24 +102,23 @@ def get_department(name: str) -> str:
 
 
 def normalize_unit(amount: float, unit: str) -> tuple:
-    """Всё переводим в кг/л/шт — никаких граммов и миллилитров."""
+    """Всё переводим в кг/л/шт — никаких граммов и миллилитров.
+    Штучные — до целых, кг/л — до десятых (единый формат округления)."""
     if unit == "г":
-        return round(amount / 1000, 3), "кг"
+        return round(amount / 1000, 1), "кг"
     if unit == "мл":
-        return round(amount / 1000, 3), "л"
+        return round(amount / 1000, 1), "л"
     if unit in ("кг", "л"):
-        return round(amount, 3), unit
+        return round(amount, 1), unit
     if unit == "шт":
         return int(round(amount)), "шт"
-    return round(amount, 3), unit
+    return round(amount, 1), unit
 
 
 def format_amount(amount, unit) -> str:
     if unit == "шт":
-        return f"{int(amount)} шт"
-    # Убираем лишние нули: 1.500 -> 1.5, 1.000 -> 1
-    formatted = f"{float(amount):.3f}".rstrip("0").rstrip(".")
-    return f"{formatted} {unit}"
+        return f"{int(round(amount))} шт"
+    return f"{float(amount):.1f} {unit}"
 
 
 def _capitalize(s: str) -> str:
