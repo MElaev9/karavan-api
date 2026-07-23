@@ -231,7 +231,7 @@ def shopping_list(_=Depends(require_telegram_auth)):
 
     ingredients = sorted(totals.values(), key=lambda x: (x["department"], x["name"]))
     for ing in ingredients:
-        ing["amount"] = round(ing["amount"], 3)
+        ing["amount"] = int(round(ing["amount"])) if ing["unit"] == "шт" else round(ing["amount"], 1)
 
     return {
         "events": [e["name"] for e in upcoming],
