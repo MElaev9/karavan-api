@@ -25,6 +25,15 @@ COLOR_WHITE  = {"red": 1.0,  "green": 1.0,  "blue": 1.0}
 COLOR_TEXT_W = {"red": 1.0,  "green": 1.0,  "blue": 1.0}    # белый текст
 
 
+def _format_date(iso_date: str) -> str:
+    """YYYY-MM-DD -> DD.MM.YYYY, как везде в приложении."""
+    try:
+        y, m, d = iso_date.split("-")
+        return f"{d}.{m}.{y}"
+    except (ValueError, AttributeError):
+        return iso_date
+
+
 def _get_service():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS")
     if not creds_json:
@@ -135,7 +144,7 @@ def export_event_to_sheets(event_name: str, guests: int,
     left = []
     left.append([f"🎉 {event_name}", ""])
     left.append(["👥 Гостей:", guests])
-    left.append(["📅 Дата:", event_date if event_date else date_str])
+    left.append(["📅 Дата:", _format_date(event_date) if event_date else date_str])
     left.append(["🗓️ Создано:", date_str])
     left.append(["", ""])
     left.append(["🍽️ МЕНЮ", ""])
@@ -149,20 +158,18 @@ def export_event_to_sheets(event_name: str, guests: int,
     right.append(["🛒 СПИСОК ЗАКУПКИ (+7% запас)", "", "", ""])
     right.append(["Отдел", "Продукт", "Количество", "Ед. изм."])
 
-    dept_rows = []  # запоминаем строки отделов для форматирования
+    dept_header_rows = []  # 1-based строки заголовков отделов для форматирования
     for dept in DEPARTMENT_ORDER:
         items = by_dept.get(dept, [])
         if not items:
             continue
-        first = True
-        dept_start = len(right) + right_start_row  # 1-based row
+        dept_header_rows.append(len(right) + right_start_row)
+        right.append([dept, "", "", ""])
         for ing in items:
             amount = ing["amount"]
             unit = ing["unit"]
-            amount_str = str(int(amount)) if unit == "шт" else f"{float(amount):.3f}".rstrip("0").rstrip(".")
-            right.append([dept if first else "", ing["name"], amount_str, unit])
-            first = False
-        dept_rows.append((dept_start, dept_start + len(items) - 1))
+            amount_str = str(int(round(amount))) if unit == "шт" else f"{float(amount):.1f}"
+            right.append(["", ing["name"], amount_str, unit])
         right.append(["", "", "", ""])
 
     # ── Записываем данные ─────────────────────────────────────────────────────
@@ -315,17 +322,22 @@ def export_event_to_sheets(event_name: str, guests: int,
         }},
     ]
 
-    # Форматирование отделов (зелёный фон для названия отдела)
-    for dept_start, dept_end in dept_rows:
-        r = dept_start + 1  # +1 для шапки, 0-based
+    # Форматирование отделов — полная строка-разделитель на всю ширину таблицы
+    for header_row in dept_header_rows:
+        r = header_row - 1  # 0-based
         requests.append({"repeatCell": {
             "range": {"sheetId": sheet_id, "startRowIndex": r, "endRowIndex": r + 1,
-                      "startColumnIndex": 3, "endColumnIndex": 4},
+                      "startColumnIndex": 3, "endColumnIndex": 7},
             "cell": {"userEnteredFormat": {
                 "backgroundColor": COLOR_GREEN,
                 "textFormat": {"bold": True, "foregroundColor": COLOR_TEXT_W},
             }},
             "fields": "userEnteredFormat",
+        }})
+        requests.append({"mergeCells": {
+            "range": {"sheetId": sheet_id, "startRowIndex": r, "endRowIndex": r + 1,
+                      "startColumnIndex": 3, "endColumnIndex": 7},
+            "mergeType": "MERGE_ALL",
         }})
 
     sheet.batchUpdate(spreadsheetId=SPREADSHEET_ID, body={"requests": requests}).execute()
