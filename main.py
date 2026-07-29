@@ -172,6 +172,7 @@ def get_event(event_id: int, _=Depends(require_telegram_auth)):
         raise HTTPException(status_code=404, detail="Event not found")
     dish_ids = json.loads(event["dish_ids"])
     event["ingredients"] = calculate_ingredients(event["guests"], dish_ids)
+    event["dishes"] = [d["name"] for d in (get_dish_by_id(did) for did in dish_ids) if d]
     return event
 
 
