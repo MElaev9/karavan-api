@@ -320,6 +320,41 @@ def export_event_to_sheets(event_name: str, guests: int,
             "properties": {"sheetId": sheet_id, "gridProperties": {"frozenRowCount": 1}},
             "fields": "gridProperties.frozenRowCount",
         }},
+
+        # B2 (Гостей) — по левому краю
+        {"repeatCell": {
+            "range": {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": 2,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "cell": {"userEnteredFormat": {"horizontalAlignment": "LEFT"}},
+            "fields": "userEnteredFormat.horizontalAlignment",
+        }},
+        # A7:A100 (№ меню) — по середине
+        {"repeatCell": {
+            "range": {"sheetId": sheet_id, "startRowIndex": 6, "endRowIndex": 100,
+                      "startColumnIndex": 0, "endColumnIndex": 1},
+            "cell": {"userEnteredFormat": {"horizontalAlignment": "CENTER"}},
+            "fields": "userEnteredFormat.horizontalAlignment",
+        }},
+        # F4:F100 (Количество) — по правому краю
+        {"repeatCell": {
+            "range": {"sheetId": sheet_id, "startRowIndex": 3, "endRowIndex": 100,
+                      "startColumnIndex": 5, "endColumnIndex": 6},
+            "cell": {"userEnteredFormat": {"horizontalAlignment": "RIGHT"}},
+            "fields": "userEnteredFormat.horizontalAlignment",
+        }},
+        # Блюда (B8:B100) и ингредиенты (E4:E100) — курсивом
+        {"repeatCell": {
+            "range": {"sheetId": sheet_id, "startRowIndex": 7, "endRowIndex": 100,
+                      "startColumnIndex": 1, "endColumnIndex": 2},
+            "cell": {"userEnteredFormat": {"textFormat": {"italic": True}}},
+            "fields": "userEnteredFormat.textFormat.italic",
+        }},
+        {"repeatCell": {
+            "range": {"sheetId": sheet_id, "startRowIndex": 3, "endRowIndex": 100,
+                      "startColumnIndex": 4, "endColumnIndex": 5},
+            "cell": {"userEnteredFormat": {"textFormat": {"italic": True}}},
+            "fields": "userEnteredFormat.textFormat.italic",
+        }},
     ]
 
     # Форматирование отделов — полная строка-разделитель на всю ширину таблицы
