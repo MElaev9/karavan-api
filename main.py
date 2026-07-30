@@ -216,9 +216,13 @@ def remove_event(event_id: int, _=Depends(require_telegram_auth)):
 
 
 @app.get("/api/shopping-list")
-def shopping_list(_=Depends(require_telegram_auth)):
+def shopping_list(event_ids: Optional[str] = None, _=Depends(require_telegram_auth)):
     today = date.today().isoformat()
     upcoming = [e for e in get_all_events() if e["event_date"] and e["event_date"] >= today]
+
+    if event_ids is not None:
+        selected = {int(x) for x in event_ids.split(",") if x.strip().isdigit()}
+        upcoming = [e for e in upcoming if e["id"] in selected]
 
     totals = {}
     for event in upcoming:
